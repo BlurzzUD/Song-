@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phosphorus — Beat Edit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;600;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+–ora:#FF6B00;–yel:#FFD700;–red:#FF1A1A;–wht:#FFF5E0;
+–bg:#020508;
+}
+body{background:var(–bg);overflow:hidden;width:100vw;height:100vh;font-family:‘Space Mono’,monospace;color:var(–wht);}
+canvas{position:fixed;top:0;left:0;z-index:0;}
+
+/* ── CLIP SYSTEM ── */
+.clip{
+position:fixed;inset:0;z-index:5;
+display:flex;align-items:center;justify-content:center;
+opacity:0;pointer-events:none;
+transition:opacity 0.04s;
+}
+.clip.active{opacity:1;pointer-events:auto;}
+
+/* Flash overlay */
+#flash{
+position:fixed;inset:0;z-index:100;
+background:white;opacity:0;pointer-events:none;
+transition:opacity 0.05s;
+}
+
+/* Scanlines */
+.scanline{
+position:fixed;inset:0;z-index:99;pointer-events:none;
+background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);
+opacity:0.35;
+}
+
+/* Beat pulse ring */
+#beat-ring{
+position:fixed;top:50%;left:50%;
+width:0;height:0;border-radius:50%;
+border:3px solid rgba(255,107,0,0);
+transform:translate(-50%,-50%);
+z-index:50;pointer-events:none;
+}
+
+/* ─── CLIP 1: Symbol close-up ─── */
+#c1{background:radial-gradient(ellipse at 50% 50%,#0a0400,#020100);}
+#c1 .sym{
+font-family:‘Bebas Neue’,sans-serif;font-size:380px;
+color:var(–ora);line-height:1;
+text-shadow:0 0 60px #FF6B00,0 0 120px rgba(255,107,0,0.5),0 0 200px rgba(255,60,0,0.2);
+animation:symPulse 0.5s ease-in-out infinite alternate;
+}
+@keyframes symPulse{from{text-shadow:0 0 40px #FF6B00,0 0 80px rgba(255,107,0,0.4);}to{text-shadow:0 0 80px #FFD700,0 0 160px rgba(255,180,0,0.6),0 0 300px rgba(255,80,0,0.2);}}
+#c1 .num{position:absolute;top:30px;right:40px;font-family:‘Bebas Neue’,sans-serif;font-size:100px;color:rgba(255,107,0,0.3);letter-spacing:-2px;}
+#c1 .bot{position:absolute;bottom:30px;left:0;width:100%;text-align:center;font-family:‘Bebas Neue’,sans-serif;font-size:28px;letter-spacing:16px;color:rgba(255,200,100,0.5);}
+
+/* ─── CLIP 2: Atom orbital ─── */
+#c2{background:radial-gradient(ellipse at 50% 50%,#060210,#020508);}
+.orbital-wrap{position:relative;width:500px;height:500px;display:flex;align-items:center;justify-content:center;}
+.orb{position:absolute;border-radius:50%;border:1px solid rgba(255,107,0,0.25);}
+.orb1{width:120px;height:120px;animation:sp1 1.8s linear infinite;}
+.orb2{width:210px;height:210px;animation:sp2 3.2s linear infinite;}
+.orb3{width:310px;height:310px;animation:sp3 5.5s linear infinite;}
+.orb4{width:410px;height:410px;animation:sp4 9s linear infinite;}
+@keyframes sp1{from{transform:rotateX(65deg) rotateZ(0deg);}to{transform:rotateX(65deg) rotateZ(360deg);}}
+@keyframes sp2{from{transform:rotateX(65deg) rotateZ(40deg);}to{transform:rotateX(65deg) rotateZ(400deg);}}
+@keyframes sp3{from{transform:rotateX(65deg) rotateZ(80deg);}to{transform:rotateX(65deg) rotateZ(440deg);}}
+@keyframes sp4{from{transform:rotateX(65deg) rotateZ(120deg);}to{transform:rotateX(65deg) rotateZ(480deg);}}
+.el{position:absolute;border-radius:50%;background:var(–yel);box-shadow:0 0 10px var(–yel),0 0 20px var(–ora);}
+.orb1 .el{width:8px;height:8px;top:-4px;left:calc(50% - 4px);}
+.orb2 .el{width:7px;height:7px;top:-4px;left:calc(50% - 4px);background:#FFB300;}
+.orb2 .e2{bottom:-4px;top:auto;}
+.orb3 .el{width:6px;height:6px;top:-4px;left:calc(50% - 4px);background:#FF8800;}
+.orb3 .e2{bottom:-4px;top:auto;}
+.orb3 .e3{top:calc(50% - 3px);left:-3px;}
+.orb4 .el{width:5px;height:5px;top:-4px;left:calc(50% - 4px);background:#FF5500;}
+.orb4 .e2{bottom:-4px;top:auto;}
+.orb4 .e3{top:calc(50% - 3px);left:-3px;}
+.orb4 .e4{top:calc(50% - 3px);right:-3px;left:auto;}
+.orb4 .e5{top:18%;left:calc(50% - 3px);}
+.nuc{width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#FF9500,#FF3300,#8B0000);box-shadow:0 0 25px rgba(255,107,0,0.9),0 0 60px rgba(255,60,0,0.5);animation:nucP 1s ease-in-out infinite;position:absolute;}
+@keyframes nucP{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+
+/* ─── CLIP 3: Data table ─── */
+#c3{background:linear-gradient(135deg,#030A0F,#010508);}
+.data-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,107,0,0.15);border:1px solid rgba(255,107,0,0.3);padding:1px;width:460px;}
+.data-cell{background:#020A10;padding:18px 22px;}
+.dl{font-size:8px;letter-spacing:3px;color:var(–ora);text-transform:uppercase;margin-bottom:4px;opacity:0.8;}
+.dv{font-family:‘Rajdhani’,sans-serif;font-size:22px;font-weight:600;color:var(–wht);}
+#c3 .title{position:absolute;top:40px;left:50%;transform:translateX(-50%);font-family:‘Bebas Neue’,sans-serif;font-size:50px;letter-spacing:12px;color:rgba(255,107,0,0.5);}
+#c3 .bot{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);font-size:8px;letter-spacing:4px;color:rgba(255,107,0,0.4);white-space:nowrap;}
+
+/* ─── CLIP 4: Allotropes ─── */
+#c4{background:radial-gradient(ellipse at 30% 50%,#0F0500,#020100);}
+.allotrope-list{display:flex;flex-direction:column;gap:0;width:480px;}
+.allo-item{padding:22px 28px;border-left:3px solid transparent;animation:alloSlide 0.3s ease forwards;opacity:0;}
+.allo-item:nth-child(1){border-color:#FFD700;animation-delay:0.1s;}
+.allo-item:nth-child(2){border-color:#FF6B00;animation-delay:0.2s;}
+.allo-item:nth-child(3){border-color:#CC0000;animation-delay:0.3s;}
+@keyframes alloSlide{from{opacity:0;transform:translateX(-20px);}to{opacity:1;transform:translateX(0);}}
+.allo-name{font-family:‘Bebas Neue’,sans-serif;font-size:36px;letter-spacing:4px;}
+.allo-desc{font-size:9px;letter-spacing:2px;opacity:0.55;margin-top:2px;text-transform:uppercase;}
+.allo-item:nth-child(1) .allo-name{color:#FFD700;text-shadow:0 0 20px rgba(255,215,0,0.4);}
+.allo-item:nth-child(2) .allo-name{color:#FF6B00;text-shadow:0 0 20px rgba(255,107,0,0.4);}
+.allo-item:nth-child(3) .allo-name{color:#CC2200;text-shadow:0 0 20px rgba(200,30,0,0.4);}
+#c4 .head{position:absolute;top:40px;left:50%;transform:translateX(-50%);font-family:‘Bebas Neue’,sans-serif;font-size:48px;letter-spacing:10px;color:rgba(255,200,100,0.2);}
+
+/* ─── CLIP 5: Discovery ─── */
+#c5{background:radial-gradient(ellipse at 70% 50%,#080200,#010100);}
+.disc-wrap{text-align:center;}
+.disc-year{font-family:‘Bebas Neue’,sans-serif;font-size:220px;line-height:0.85;color:rgba(255,107,0,0.12);position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+.disc-content{position:relative;z-index:2;text-align:center;}
+.disc-label{font-size:9px;letter-spacing:4px;color:rgba(255,107,0,0.7);text-transform:uppercase;margin-bottom:10px;}
+.disc-name{font-family:‘Bebas Neue’,sans-serif;font-size:72px;letter-spacing:6px;color:var(–wht);line-height:1;text-shadow:0 0 30px rgba(255,200,100,0.3);}
+.disc-sub{font-size:11px;letter-spacing:3px;color:rgba(255,180,100,0.5);margin-top:8px;}
+.disc-line{width:200px;height:1px;background:linear-gradient(90deg,transparent,var(–ora),transparent);margin:20px auto;}
+
+/* ─── CLIP 6: Full card ─── */
+#c6{background:radial-gradient(ellipse at 50% 50%,#080300,var(–bg));}
+.card{
+width:280px;border:1px solid rgba(255,107,0,0.4);
+display:grid;grid-template-rows:auto auto auto auto;
+position:relative;
+box-shadow:0 0 40px rgba(255,107,0,0.15),0 0 80px rgba(255,60,0,0.08);
+}
+.card-num{padding:14px 18px;font-size:11px;letter-spacing:2px;color:rgba(255,107,0,0.7);border-bottom:1px solid rgba(255,107,0,0.2);}
+.card-sym{font-family:‘Bebas Neue’,sans-serif;font-size:160px;line-height:0.85;text-align:center;color:var(–wht);padding:10px 0;text-shadow:0 0 40px rgba(255,200,100,0.2);}
+.card-name{font-family:‘Bebas Neue’,sans-serif;font-size:30px;letter-spacing:8px;text-align:center;color:var(–ora);padding-bottom:6px;}
+.card-mass{font-size:9px;letter-spacing:2px;text-align:center;color:rgba(255,200,100,0.5);padding-bottom:16px;}
+.card-cat{font-size:7px;letter-spacing:3px;text-align:center;color:rgba(255,107,0,0.4);padding-bottom:14px;border-top:1px solid rgba(255,107,0,0.1);padding-top:10px;text-transform:uppercase;}
+
+/* ─── UI overlay ─── */
+#ui{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:200;display:flex;gap:12px;align-items:center;}
+#playBtn{
+background:rgba(255,107,0,0.15);border:1px solid rgba(255,107,0,0.5);
+color:var(–ora);font-family:‘Space Mono’,monospace;font-size:11px;
+padding:10px 24px;cursor:pointer;letter-spacing:2px;text-transform:uppercase;
+transition:all 0.2s;
+}
+#playBtn:hover{background:rgba(255,107,0,0.3);box-shadow:0 0 20px rgba(255,107,0,0.3);}
+#bpm-display{font-size:10px;letter-spacing:2px;color:rgba(255,107,0,0.6);}
+#clip-counter{font-size:10px;letter-spacing:2px;color:rgba(255,200,100,0.4);}
+
+/* Beat visualizer bar */
+#viz{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);display:flex;gap:3px;align-items:flex-end;height:30px;z-index:200;}
+.vbar{width:4px;background:rgba(255,107,0,0.5);border-radius:2px;height:4px;transition:height 0.05s;}
+</style>
+
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="scanline"></div>
+<div id="flash"></div>
+<div id="beat-ring"></div>
+
+<!-- CLIP 1: Symbol -->
+
+<div class="clip active" id="c1">
+  <div class="num">15</div>
+  <div class="sym">P</div>
+  <div class="bot">PHOSPHORUS</div>
+</div>
+
+<!-- CLIP 2: Atom -->
+
+<div class="clip" id="c2">
+  <div class="orbital-wrap">
+    <div class="orb orb1"><div class="el"></div><div class="el e2" style="bottom:-4px;top:auto;left:calc(50% - 4px)"></div></div>
+    <div class="orb orb2"><div class="el"></div><div class="el e2" style="bottom:-4px;top:auto;left:calc(50% - 4px)"></div><div class="el e3" style="top:calc(50% - 3px);left:-3px"></div><div class="el" style="top:calc(50% - 3px);right:-3px;left:auto"></div></div>
+    <div class="orb orb3"><div class="el"></div><div class="el e2" style="bottom:-4px;top:auto;left:calc(50% - 4px)"></div><div class="el e3" style="top:calc(50% - 3px);left:-3px"></div><div class="el" style="top:calc(50% - 3px);right:-3px;left:auto"></div><div class="el" style="top:18%;left:calc(50% - 3px)"></div></div>
+    <div class="orb orb4"><div class="el"></div><div class="el e2" style="bottom:-4px;top:auto;left:calc(50% - 4px)"></div><div class="el e3" style="top:calc(50% - 3px);left:-3px"></div><div class="el e4" style="top:calc(50% - 3px);right:-3px;left:auto"></div><div class="el e5" style="top:18%;left:calc(50% - 3px)"></div></div>
+    <div class="nuc"></div>
+  </div>
+</div>
+
+<!-- CLIP 3: Data -->
+
+<div class="clip" id="c3">
+  <div class="title">PROPERTIES</div>
+  <div class="data-grid">
+    <div class="data-cell"><div class="dl">Atomic Number</div><div class="dv">15</div></div>
+    <div class="data-cell"><div class="dl">Atomic Mass</div><div class="dv">30.974 u</div></div>
+    <div class="data-cell"><div class="dl">Melting Point</div><div class="dv">44.15 °C</div></div>
+    <div class="data-cell"><div class="dl">Boiling Point</div><div class="dv">280.5 °C</div></div>
+    <div class="data-cell"><div class="dl">Electronegativity</div><div class="dv">2.19</div></div>
+    <div class="data-cell"><div class="dl">Density</div><div class="dv">1.82 g/cm³</div></div>
+    <div class="data-cell"><div class="dl">Electron Config</div><div class="dv">[Ne] 3s² 3p³</div></div>
+    <div class="data-cell"><div class="dl">Oxidation States</div><div class="dv">−3, +3, +5</div></div>
+  </div>
+  <div class="bot">GROUP 15 · PERIOD 3 · P-BLOCK</div>
+</div>
+
+<!-- CLIP 4: Allotropes -->
+
+<div class="clip" id="c4">
+  <div class="head">ALLOTROPES</div>
+  <div class="allotrope-list">
+    <div class="allo-item"><div class="allo-name">WHITE</div><div class="allo-desc">Waxy · Toxic · Glows in dark · Most reactive</div></div>
+    <div class="allo-item"><div class="allo-name">RED</div><div class="allo-desc">Stable · Used in matches · Amorphous structure</div></div>
+    <div class="allo-item"><div class="allo-name">BLACK</div><div class="allo-desc">Semiconductor · Most stable · Least reactive</div></div>
+  </div>
+</div>
+
+<!-- CLIP 5: Discovery -->
+
+<div class="clip" id="c5">
+  <div class="disc-year">1669</div>
+  <div class="disc-content">
+    <div class="disc-label">Discovered</div>
+    <div class="disc-name">Hennig<br>Brand</div>
+    <div class="disc-line"></div>
+    <div class="disc-sub">Hamburg, Germany · 1669</div>
+    <div class="disc-sub" style="margin-top:6px;font-size:9px;color:rgba(255,107,0,0.4)">First element discovered by a known person</div>
+  </div>
+</div>
+
+<!-- CLIP 6: Card -->
+
+<div class="clip" id="c6">
+  <div class="card">
+    <div class="card-num">15 · NONMETAL · GROUP 15</div>
+    <div class="card-sym">P</div>
+    <div class="card-name">Phosphorus</div>
+    <div class="card-mass">30.973762 u</div>
+    <div class="card-cat">The Devil's Element</div>
+  </div>
+</div>
+
+<!-- UI -->
+
+<div id="ui">
+  <button id="playBtn">▶ PLAY</button>
+  <div id="bpm-display">BPM: --</div>
+  <div id="clip-counter">CLIP: 1/6</div>
+</div>
+<div id="viz"></div>
+
+<script>
+// ── Build viz bars ──
+const viz = document.getElementById('viz');
+const BARS = 32;
+for(let i=0;i<BARS;i++){const b=document.createElement('div');b.className='vbar';viz.appendChild(b);}
+const vbars = viz.querySelectorAll('.vbar');
+
+// ── Background canvas ──
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+const pts = Array.from({length:80},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.5+0.3,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,a:Math.random()*.5+.1,c:Math.random()>.5?'255,107,0':'255,200,50'}));
+function drawBg(){ctx.clearRect(0,0,canvas.width,canvas.height);const g=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,300);g.addColorStop(0,'rgba(255,70,0,0.05)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(,)`;ctx.fill();}requestAnimationFrame(drawBg);}
+drawBg();
+
+// ── Clips ──
+const clips = document.querySelectorAll('.clip');
+let currentClip = 0;
+function showClip(i){clips.forEach(c=>c.classList.remove('active'));clips[i].classList.add('active');document.getElementById('clip-counter').textContent=`CLIP: /6`;}
+
+// ── Flash on beat ──
+const flash = document.getElementById('flash');
+const ring = document.getElementById('beat-ring');
+function doFlash(intensity=1){
+  flash.style.opacity = 0.12 * intensity;
+  flash.style.transition = 'opacity 0.03s';
+  setTimeout(()=>{flash.style.opacity=0;flash.style.transition='opacity 0.15s';},60);
+  // Ring expand
+  ring.style.width='60px';ring.style.height='60px';ring.style.opacity='0.9';
+  ring.style.borderColor=`rgba(255,,0,0.8)`;
+  ring.style.transition='none';
+  requestAnimationFrame(()=>{
+    ring.style.transition='width 0.5s ease-out,height 0.5s ease-out,opacity 0.5s ease-out';
+    ring.style.width='500px';ring.style.height='500px';ring.style.opacity='0';
+  });
+}
+
+// ── Audio + Beat Detection ──
+let audioCtx, analyser, source, dataArray, freqArray;
+let bpm = 128, beatInterval = 60/128*1000;
+let lastBeat = 0, beatCount = 0;
+let clipChangeEvery = 8; // beats per clip change
+let playing = false;
+let audioBuffer = null;
+
+const playBtn = document.getElementById('playBtn');
+const bpmDisplay = document.getElementById('bpm-display');
+
+// Beat detection state
+let energyHistory = new Array(43).fill(0);
+let frameCount = 0;
+
+function detectBeat(bass){
+  const avg = energyHistory.reduce((a,b)=>a+b,0)/energyHistory.length;
+  energyHistory[frameCount % energyHistory.length] = bass;
+  frameCount++;
+  const now = performance.now();
+  const C = 1.4;
+  if(bass > avg * C && (now - lastBeat) > 250){
+    const interval = now - lastBeat;
+    if(lastBeat > 0 && interval < 2000){
+      const newBpm = Math.round(60000/interval);
+      if(newBpm > 60 && newBpm < 220){
+        bpm = bpm * 0.8 + newBpm * 0.2;
+        bpmDisplay.textContent = `BPM: `;
+      }
+    }
+    lastBeat = now;
+    beatCount++;
+    doFlash(Math.min(bass/avg/C, 2));
+    if(beatCount % clipChangeEvery === 0){
+      currentClip = (currentClip + 1) % clips.length;
+      showClip(currentClip);
+    }
+    return true;
+  }
+  return false;
+}
+
+function analyzeLoop(){
+  if(!playing) return;
+  analyser.getByteFrequencyData(dataArray);
+  analyser.getByteFrequencyData(freqArray);
+
+  // Bass energy (0-10 bins)
+  let bass = 0;
+  for(let i=0;i<10;i++) bass += dataArray[i];
+  bass /= 10;
+
+  // Mid energy
+  let mid = 0;
+  for(let i=10;i<80;i++) mid += dataArray[i];
+  mid /= 70;
+
+  detectBeat(bass);
+
+  // Update viz bars
+  for(let i=0;i<BARS;i++){
+    const val = freqArray[Math.floor(i * freqArray.length/BARS)];
+    const h = Math.max(2, val/255*28);
+    const r = Math.floor(255);
+    const g = Math.floor(107 + (val/255)*100);
+    vbars[i].style.height = h+'px';
+    vbars[i].style.background = `rgba(,,0,0.8)`;
+  }
+
+  requestAnimationFrame(analyzeLoop);
+}
+
+async function loadAndPlay(){
+  if(playing){
+    source && source.stop();
+    playing=false;
+    playBtn.textContent='▶ PLAY';
+    return;
+  }
+
+  playBtn.textContent='LOADING...';
+
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    freqArray = new Uint8Array(analyser.frequencyBinCount);
+    analyser.connect(audioCtx.destination);
+  }
+
+  if(!audioBuffer){
+    playBtn.textContent='LOADING...';
+    const resp = await fetch('https://blurzzud.github.io/Song-/MONTAGEM%20XONADA.mp3');
+    const arrayBuf = await resp.arrayBuffer();
+    audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+  }
+
+  source = audioCtx.createBufferSource();
+  source.buffer = audioBuffer;
+  source.connect(analyser);
+  source.start(0);
+  playing = true;
+  playBtn.textContent='■ STOP';
+  source.onended = ()=>{playing=false;playBtn.textContent='▶ PLAY';};
+  analyzeLoop();
+}
+
+playBtn.addEventListener('click', loadAndPlay);
+window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;});
+
+
+</script>
+
+</body>
+</html>
