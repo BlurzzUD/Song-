@@ -242,7 +242,15 @@ transition:all 0.2s;
 <div id="viz"></div>
 
 <script>
-// ── Build viz bars ──
+// ── DOM refs (declared first so nothing is used before init) ──
+const playBtn    = document.getElementById('playBtn');
+const bpmDisplay = document.getElementById('bpm-display');
+const clipCounter= document.getElementById('clip-counter');
+const flash      = document.getElementById('beat-ring') && document.getElementById('flash');
+const ring       = document.getElementById('beat-ring');
+const flashEl    = document.getElementById('flash');
+
+// ── Viz bars ──
 const viz = document.getElementById('viz');
 const BARS = 32;
 for(let i=0;i<BARS;i++){const b=document.createElement('div');b.className='vbar';viz.appendChild(b);}
@@ -252,113 +260,126 @@ const vbars = viz.querySelectorAll('.vbar');
 const canvas = document.getElementById('bg');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-const pts = Array.from({length:80},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.5+0.3,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,a:Math.random()*.5+.1,c:Math.random()>.5?'255,107,0':'255,200,50'}));
-function drawBg(){ctx.clearRect(0,0,canvas.width,canvas.height);const g=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,300);g.addColorStop(0,'rgba(255,70,0,0.05)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(${p.c},${p.a})`;ctx.fill();}requestAnimationFrame(drawBg);}
+const pts = Array.from({length:80},()=>({
+  x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+  r:Math.random()*1.5+0.3, vx:(Math.random()-.5)*.25, vy:(Math.random()-.5)*.25,
+  a:Math.random()*.5+.1, c:Math.random()>.5?'255,107,0':'255,200,50'
+}));
+function drawBg(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const g=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,300);
+  g.addColorStop(0,'rgba(255,70,0,0.05)');g.addColorStop(1,'transparent');
+  ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(const p of pts){
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;
+    if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${p.c},${p.a})`;ctx.fill();
+  }
+  requestAnimationFrame(drawBg);
+}
 drawBg();
 
 // ── Clips ──
 const clips = document.querySelectorAll('.clip');
 let currentClip = 0;
-function showClip(i){clips.forEach(c=>c.classList.remove('active'));clips[i].classList.add('active');document.getElementById('clip-counter').textContent=`CLIP: ${i+1}/6`;}
+function showClip(i){
+  clips.forEach(c=>c.classList.remove('active'));
+  clips[i].classList.add('active');
+  clipCounter.textContent=`CLIP: ${i+1}/6`;
+}
 
-// ── Flash on beat ──
-const flash = document.getElementById('flash');
-const ring = document.getElementById('beat-ring');
-function doFlash(intensity=1){
-  flash.style.opacity = 0.12 * intensity;
-  flash.style.transition = 'opacity 0.03s';
-  setTimeout(()=>{flash.style.opacity=0;flash.style.transition='opacity 0.15s';},60);
-  // Ring expand
-  ring.style.width='60px';ring.style.height='60px';ring.style.opacity='0.9';
-  ring.style.borderColor=`rgba(255,${Math.floor(107+100*intensity)},0,0.8)`;
+// ── Beat flash ──
+function doFlash(intensity){
+  intensity = Math.min(intensity||1, 2);
+  flashEl.style.transition='opacity 0.03s';
+  flashEl.style.opacity = 0.15 * intensity;
+  setTimeout(()=>{flashEl.style.transition='opacity 0.2s';flashEl.style.opacity=0;},60);
   ring.style.transition='none';
+  ring.style.width='60px';ring.style.height='60px';
+  ring.style.opacity='1';
+  ring.style.borderColor=`rgba(255,150,0,0.9)`;
   requestAnimationFrame(()=>{
-    ring.style.transition='width 0.5s ease-out,height 0.5s ease-out,opacity 0.5s ease-out';
+    ring.style.transition='width 0.6s ease-out,height 0.6s ease-out,opacity 0.6s ease-out';
     ring.style.width='500px';ring.style.height='500px';ring.style.opacity='0';
   });
 }
 
-// ── Audio setup ──
+// ── Audio ──
 const SONG_URL = 'https://blurzzud.github.io/Song-/MONTAGEM%20XONADA.mp3';
-// crossOrigin MUST be set before src to take effect
 const audio = document.createElement('audio');
-audio.setAttribute('crossorigin', 'anonymous');
-audio.setAttribute('preload', 'none');
+audio.crossOrigin = 'anonymous'; // set BEFORE src
 audio.src = SONG_URL;
+audio.preload = 'auto';
 document.body.appendChild(audio);
-audio.addEventListener('error', (e) => {
-  playBtn.textContent = '▶ PLAY';
-  bpmDisplay.textContent = 'ERROR: ' + (audio.error ? audio.error.message : 'load failed');
-});
-audio.addEventListener('waiting', () => { if(playing) playBtn.textContent = 'BUFFERING...'; });
-audio.addEventListener('playing', () => { playBtn.textContent = '■ STOP'; });
 
-let audioCtx, analyser, dataArray, freqArray;
+let audioCtx = null, analyser = null, dataArray, freqArray;
+let audioSetup = false;
+let playing = false;
+
+// Beat detection
 let bpm = 128;
 let lastBeat = 0, beatCount = 0;
-let clipChangeEvery = 8;
-let playing = false;
-let audioSetup = false;
-
-const playBtn = document.getElementById('playBtn');
-const bpmDisplay = document.getElementById('bpm-display');
-
-let energyHistory = new Array(43).fill(0);
-let frameCount = 0;
+const clipChangeEvery = 4; // change clip every N beats
+let energyHistory = new Array(60).fill(0);
+let histIdx = 0;
 
 function setupAudio(){
   if(audioSetup) return;
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
   analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-  freqArray = new Uint8Array(analyser.frequencyBinCount);
-  const src = audioCtx.createMediaElementSource(audio);
+  analyser.fftSize = 1024;
+  dataArray  = new Uint8Array(analyser.frequencyBinCount);
+  freqArray  = new Uint8Array(analyser.frequencyBinCount);
+  const src  = audioCtx.createMediaElementSource(audio);
   src.connect(analyser);
   analyser.connect(audioCtx.destination);
   audioSetup = true;
 }
 
-function detectBeat(bass){
+function analyzeLoop(){
+  if(!playing) return;
+  requestAnimationFrame(analyzeLoop);
+
+  analyser.getByteFrequencyData(dataArray);
+
+  // Bass = bins 0-15 (roughly 0-650Hz)
+  let bass = 0;
+  for(let i=0;i<16;i++) bass += dataArray[i];
+  bass /= 16;
+
+  // Local energy average
   const avg = energyHistory.reduce((a,b)=>a+b,0)/energyHistory.length;
-  energyHistory[frameCount % energyHistory.length] = bass;
-  frameCount++;
+  energyHistory[histIdx++ % energyHistory.length] = bass;
+
   const now = performance.now();
-  const C = 1.4;
-  if(bass > avg * C && (now - lastBeat) > 250){
+  const threshold = Math.max(avg * 1.3, 20); // at least 20 to avoid silence triggers
+
+  if(bass > threshold && (now - lastBeat) > 200){
     const interval = now - lastBeat;
-    if(lastBeat > 0 && interval < 2000){
-      const newBpm = Math.round(60000/interval);
-      if(newBpm > 60 && newBpm < 220){
-        bpm = bpm * 0.8 + newBpm * 0.2;
+    if(lastBeat > 0 && interval > 200 && interval < 2000){
+      const detected = Math.round(60000/interval);
+      if(detected > 60 && detected < 220){
+        bpm = bpm * 0.85 + detected * 0.15;
         bpmDisplay.textContent = `BPM: ${Math.round(bpm)}`;
       }
     }
     lastBeat = now;
     beatCount++;
-    doFlash(Math.min(bass/avg/C, 2));
+    doFlash(bass / Math.max(avg,1) / 1.3);
     if(beatCount % clipChangeEvery === 0){
       currentClip = (currentClip + 1) % clips.length;
       showClip(currentClip);
     }
   }
-}
 
-function analyzeLoop(){
-  if(!playing) return;
-  analyser.getByteFrequencyData(dataArray);
-  analyser.getByteFrequencyData(freqArray);
-  let bass = 0;
-  for(let i=0;i<10;i++) bass += dataArray[i];
-  bass /= 10;
-  detectBeat(bass);
+  // Viz bars
   for(let i=0;i<BARS;i++){
-    const val = freqArray[Math.floor(i * freqArray.length/BARS)];
-    const h = Math.max(2, val/255*28);
-    vbars[i].style.height = h+'px';
-    vbars[i].style.background = `rgba(255,${Math.floor(107+(val/255)*100)},0,0.8)`;
+    const val = dataArray[Math.floor(i * dataArray.length/BARS)];
+    vbars[i].style.height = Math.max(2, val/255*28)+'px';
+    vbars[i].style.background = `rgba(255,${Math.floor(107+(val/255)*100)},0,0.85)`;
   }
-  requestAnimationFrame(analyzeLoop);
 }
 
 playBtn.addEventListener('click', ()=>{
@@ -372,22 +393,21 @@ playBtn.addEventListener('click', ()=>{
   setupAudio();
   if(audioCtx.state === 'suspended') audioCtx.resume();
   playBtn.textContent = 'LOADING...';
-  audio.play().then(()=>{
-    playing = true;
-    playBtn.textContent = '■ STOP';
-    analyzeLoop();
-  }).catch(e => {
-    playing = false;
-    playBtn.textContent = '▶ PLAY';
-    bpmDisplay.textContent = 'ERR: ' + e.message;
-    console.error('Playback failed:', e);
-  });
+  audio.play()
+    .then(()=>{
+      playing = true;
+      playBtn.textContent = '■ STOP';
+      analyzeLoop();
+    })
+    .catch(err=>{
+      playing = false;
+      playBtn.textContent = '▶ PLAY';
+      bpmDisplay.textContent = 'ERR: '+err.message;
+    });
 });
 
 audio.addEventListener('ended', ()=>{ playing=false; playBtn.textContent='▶ PLAY'; });
-window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;});
-
-
+window.addEventListener('resize',()=>{ canvas.width=window.innerWidth; canvas.height=window.innerHeight; });
 </script>
 
 </body>
