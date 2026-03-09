@@ -253,13 +253,13 @@ const canvas = document.getElementById('bg');
 const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth; canvas.height = window.innerHeight;
 const pts = Array.from({length:80},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*1.5+0.3,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,a:Math.random()*.5+.1,c:Math.random()>.5?'255,107,0':'255,200,50'}));
-function drawBg(){ctx.clearRect(0,0,canvas.width,canvas.height);const g=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,300);g.addColorStop(0,'rgba(255,70,0,0.05)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(,)`;ctx.fill();}requestAnimationFrame(drawBg);}
+function drawBg(){ctx.clearRect(0,0,canvas.width,canvas.height);const g=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,300);g.addColorStop(0,'rgba(255,70,0,0.05)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,canvas.width,canvas.height);for(const p of pts){p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=`rgba(${p.c},${p.a})`;ctx.fill();}requestAnimationFrame(drawBg);}
 drawBg();
 
 // ── Clips ──
 const clips = document.querySelectorAll('.clip');
 let currentClip = 0;
-function showClip(i){clips.forEach(c=>c.classList.remove('active'));clips[i].classList.add('active');document.getElementById('clip-counter').textContent=`CLIP: /6`;}
+function showClip(i){clips.forEach(c=>c.classList.remove('active'));clips[i].classList.add('active');document.getElementById('clip-counter').textContent=`CLIP: ${i+1}/6`;}
 
 // ── Flash on beat ──
 const flash = document.getElementById('flash');
@@ -270,7 +270,7 @@ function doFlash(intensity=1){
   setTimeout(()=>{flash.style.opacity=0;flash.style.transition='opacity 0.15s';},60);
   // Ring expand
   ring.style.width='60px';ring.style.height='60px';ring.style.opacity='0.9';
-  ring.style.borderColor=`rgba(255,,0,0.8)`;
+  ring.style.borderColor=`rgba(255,${Math.floor(107+100*intensity)},0,0.8)`;
   ring.style.transition='none';
   requestAnimationFrame(()=>{
     ring.style.transition='width 0.5s ease-out,height 0.5s ease-out,opacity 0.5s ease-out';
@@ -278,20 +278,46 @@ function doFlash(intensity=1){
   });
 }
 
-// ── Audio + Beat Detection ──
-let audioCtx, analyser, source, dataArray, freqArray;
-let bpm = 128, beatInterval = 60/128*1000;
+// ── Audio setup ──
+const SONG_URL = 'https://blurzzud.github.io/Song-/MONTAGEM%20XONADA.mp3';
+// crossOrigin MUST be set before src to take effect
+const audio = document.createElement('audio');
+audio.setAttribute('crossorigin', 'anonymous');
+audio.setAttribute('preload', 'none');
+audio.src = SONG_URL;
+document.body.appendChild(audio);
+audio.addEventListener('error', (e) => {
+  playBtn.textContent = '▶ PLAY';
+  bpmDisplay.textContent = 'ERROR: ' + (audio.error ? audio.error.message : 'load failed');
+});
+audio.addEventListener('waiting', () => { if(playing) playBtn.textContent = 'BUFFERING...'; });
+audio.addEventListener('playing', () => { playBtn.textContent = '■ STOP'; });
+
+let audioCtx, analyser, dataArray, freqArray;
+let bpm = 128;
 let lastBeat = 0, beatCount = 0;
-let clipChangeEvery = 8; // beats per clip change
+let clipChangeEvery = 8;
 let playing = false;
-let audioBuffer = null;
+let audioSetup = false;
 
 const playBtn = document.getElementById('playBtn');
 const bpmDisplay = document.getElementById('bpm-display');
 
-// Beat detection state
 let energyHistory = new Array(43).fill(0);
 let frameCount = 0;
+
+function setupAudio(){
+  if(audioSetup) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 2048;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  freqArray = new Uint8Array(analyser.frequencyBinCount);
+  const src = audioCtx.createMediaElementSource(audio);
+  src.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  audioSetup = true;
+}
 
 function detectBeat(bass){
   const avg = energyHistory.reduce((a,b)=>a+b,0)/energyHistory.length;
@@ -305,7 +331,7 @@ function detectBeat(bass){
       const newBpm = Math.round(60000/interval);
       if(newBpm > 60 && newBpm < 220){
         bpm = bpm * 0.8 + newBpm * 0.2;
-        bpmDisplay.textContent = `BPM: `;
+        bpmDisplay.textContent = `BPM: ${Math.round(bpm)}`;
       }
     }
     lastBeat = now;
@@ -315,78 +341,50 @@ function detectBeat(bass){
       currentClip = (currentClip + 1) % clips.length;
       showClip(currentClip);
     }
-    return true;
   }
-  return false;
 }
 
 function analyzeLoop(){
   if(!playing) return;
   analyser.getByteFrequencyData(dataArray);
   analyser.getByteFrequencyData(freqArray);
-
-  // Bass energy (0-10 bins)
   let bass = 0;
   for(let i=0;i<10;i++) bass += dataArray[i];
   bass /= 10;
-
-  // Mid energy
-  let mid = 0;
-  for(let i=10;i<80;i++) mid += dataArray[i];
-  mid /= 70;
-
   detectBeat(bass);
-
-  // Update viz bars
   for(let i=0;i<BARS;i++){
     const val = freqArray[Math.floor(i * freqArray.length/BARS)];
     const h = Math.max(2, val/255*28);
-    const r = Math.floor(255);
-    const g = Math.floor(107 + (val/255)*100);
     vbars[i].style.height = h+'px';
-    vbars[i].style.background = `rgba(,,0,0.8)`;
+    vbars[i].style.background = `rgba(255,${Math.floor(107+(val/255)*100)},0,0.8)`;
   }
-
   requestAnimationFrame(analyzeLoop);
 }
 
-async function loadAndPlay(){
+playBtn.addEventListener('click', ()=>{
   if(playing){
-    source && source.stop();
-    playing=false;
-    playBtn.textContent='▶ PLAY';
+    audio.pause();
+    audio.currentTime = 0;
+    playing = false;
+    playBtn.textContent = '▶ PLAY';
     return;
   }
+  setupAudio();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  playBtn.textContent = 'LOADING...';
+  audio.play().then(()=>{
+    playing = true;
+    playBtn.textContent = '■ STOP';
+    analyzeLoop();
+  }).catch(e => {
+    playing = false;
+    playBtn.textContent = '▶ PLAY';
+    bpmDisplay.textContent = 'ERR: ' + e.message;
+    console.error('Playback failed:', e);
+  });
+});
 
-  playBtn.textContent='LOADING...';
-
-  if(!audioCtx){
-    audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 2048;
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    freqArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.connect(audioCtx.destination);
-  }
-
-  if(!audioBuffer){
-    playBtn.textContent='LOADING...';
-    const resp = await fetch('https://blurzzud.github.io/Song-/MONTAGEM%20XONADA.mp3');
-    const arrayBuf = await resp.arrayBuffer();
-    audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
-  }
-
-  source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(analyser);
-  source.start(0);
-  playing = true;
-  playBtn.textContent='■ STOP';
-  source.onended = ()=>{playing=false;playBtn.textContent='▶ PLAY';};
-  analyzeLoop();
-}
-
-playBtn.addEventListener('click', loadAndPlay);
+audio.addEventListener('ended', ()=>{ playing=false; playBtn.textContent='▶ PLAY'; });
 window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight;});
 
 
